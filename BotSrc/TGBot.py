@@ -12,7 +12,7 @@ def StartMessage(message):
 
 @TG_ART_BOT.message_handler(commands="regUser")
 def RegisterNewUser(message):
-
+#Жопппааааа
     pass
 
 
