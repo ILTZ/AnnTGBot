@@ -7,7 +7,8 @@ import sqlite3
 USER_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "User" 
 (
     "ID"	INTEGER NOT NULL UNIQUE,
-    "Login"	TEXT NOT NULL UNIQUE,
+    "TGUserID" INTEGER NOT NULL UNIQUE,
+    "UserName"	TEXT NOT NULL UNIQUE,
     "Description"	TEXT,
     "Birthday"	TEXT NOT NULL,
     "Rcontent"	INTEGER NOT NULL,
@@ -86,9 +87,9 @@ class SQLiteDBHandler(DBHandler):
 
         pass
 
-    def AddNewUser(self, login, description, birthday, rContent, startPictureSlots):        
-        query = f'''INSERT INTO User (Login, Description, Birthday, Rcontent, ReviewCounter, PictureSlots) VALUES
-        ("{login}", "{description}", "{birthday}", {int(rContent)}, 0, {startPictureSlots})'''
+    def AddNewUser(self, tgID, userName, description, birthday, rContent, startPictureSlots):        
+        query = f'''INSERT INTO User (UserName, Description, Birthday, Rcontent, ReviewCounter, PictureSlots) VALUES
+        ({tgID}, "{userName}", "{description}", "{birthday}", {int(rContent)}, 0, {startPictureSlots})'''
 
         self.__dataBase.Execute(query)
 
@@ -102,7 +103,7 @@ class SQLiteDBHandler(DBHandler):
         pass
 
     def AddUserLink(self, userID, link):
-        query = f'''SELECT Link.Link from Link WHERE UserID = {userID}'''
+        query = f'''SELECT Link from Link WHERE UserID = {userID}'''
 
         result = self.__dataBase.ExecQuery(query)
         if (len(result) > 0):
@@ -147,3 +148,7 @@ class SQLiteDBHandler(DBHandler):
         result = self.__dataBase.ExecQuery(query)
 
         return result        
+    
+    def GetRandomPicture(self, userID):
+
+        pass

@@ -28,3 +28,6 @@ class DBHandler:
     def GetPictureReview(self, pictureID):
         pass
 
+    def GetRandomPicture(self, userID):
+        pass
+
