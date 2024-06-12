@@ -87,67 +87,74 @@ class SQLiteDBHandler(DBHandler):
 
         pass
 
-    def AddNewUser(self, tgID, userName, description, birthday, rContent, startPictureSlots):        
-        query = f'''INSERT INTO User (UserName, Description, Birthday, Rcontent, ReviewCounter, PictureSlots) VALUES
-        ({tgID}, "{userName}", "{description}", "{birthday}", {int(rContent)}, 0, {startPictureSlots})'''
+    def AddNewUser(self, tgID, userName, description, birthday, rContent, startPictureSlots):              
 
-        self.__dataBase.Execute(query)
+        # query = f'''INSERT INTO User (UserName, Description, Birthday, Rcontent, ReviewCounter, PictureSlots) VALUES
+        # ({tgID}, "{userName}", "{description}", "{birthday}", {int(rContent)}, 0, {startPictureSlots})'''
+        
+        # self.__dataBase.Execute(query)        
 
-        pass
+        return
 
     def AddNewPicture(self, userID, description, picture, rContetMark):
-        query = f'''INSERT INTO Picture (UserID, Description, PictureData, Rcontent) VALUES ({userID}, "{description}", {sqlite3.Binary(picture)}, {int(rContetMark)})'''
-        
-        self.__dataBase.Execute(query)
 
-        pass
+        # query = f'''INSERT INTO Picture (UserID, Description, PictureData, Rcontent) VALUES ({userID}, "{description}", {sqlite3.Binary(picture)}, {int(rContetMark)})'''        
+        # self.__dataBase.Execute(query)        
+
+        return
 
     def AddUserLink(self, userID, link):
-        query = f'''SELECT Link from Link WHERE UserID = {userID}'''
 
-        result = self.__dataBase.ExecQuery(query)
-        if (len(result) > 0):
-            return False
+        # query = f'''SELECT Link from Link WHERE UserID = {userID}'''
 
-        query = f'''INSERT INTO Link (Link, UserID) VALUES ("{link}", {userID})'''
-        self.__dataBase.ExecQuery(query)
+        # result = self.__dataBase.ExecQuery(query)
+        # if (len(result) > 0):
+        #     return False
 
-        return True
+        # query = f'''INSERT INTO Link (Link, UserID) VALUES ("{link}", {userID})'''
+        # self.__dataBase.ExecQuery(query)
+
+        return 
 
     def AddPictureReview(self, reviewerID, pictureID, text, rating):
-        query = f'''INSERT INTO Review (UserID, PictureID, Text, Rating, Read) VALUES ({reviewerID}, {pictureID}, "{text}", {rating}, 0)'''
 
-        self.__dataBase.ExecQuery(query)
+        # query = f'''INSERT INTO Review (UserID, PictureID, Text, Rating, Read) VALUES ({reviewerID}, {pictureID}, "{text}", {rating}, 0)'''
 
-        return True
+        # self.__dataBase.ExecQuery(query)
+
+        return
 
     def GetUserPictures(self, userID, rContent):
-        query = f'''SELECT * FROM Picture WHERE UserID = {userID} AND RContent = {int(rContent)}'''
 
-        result = self.__dataBase.ExecQuery(query)
+        # query = f'''SELECT * FROM Picture WHERE UserID = {userID} AND RContent = {int(rContent)}'''
 
-        return result                
+        # return self.__dataBase.ExecQuery(query)
+
+        return
 
     def GetUserLinks(self, userID):
-        query = f'''SELECT * FROM Link WHERE UserID = {userID}'''
 
-        result = self.__dataBase.ExecQuery(query)
+        # query = f'''SELECT * FROM Link WHERE UserID = {userID}'''
 
-        return result                
+        # return self.__dataBase.ExecQuery(query)
+
+        return
 
     def GetUserInfo(self, tgLogin):
-        query = f'''SELECT * FROM User WHERE Login = "{tgLogin}"'''
 
-        result = self.__dataBase.ExecQuery(query)
+        # query = f'''SELECT * FROM User WHERE Login = "{tgLogin}"'''
 
-        return result                    
+        # return self.__dataBase.ExecQuery(query)
+
+        return
 
     def GetPictureReview(self, pictureID):
-        query = f'''SELECT * FROM Review WHERE PictureID = {pictureID}'''
 
-        result = self.__dataBase.ExecQuery(query)
+        # query = f'''SELECT * FROM Review WHERE PictureID = {pictureID}'''
 
-        return result        
+        # return self.__dataBase.ExecQuery(query)
+
+        return
     
     def GetRandomPicture(self, userID):
 
