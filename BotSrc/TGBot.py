@@ -3,22 +3,117 @@ import BotSrc.Messages as Messages
 
 import telebot
 from telebot import types
+from DB.SQLiteDBHandler import handler
 
 TG_ART_BOT = telebot.TeleBot(BotData.TG_TOKEN)
 
+PICTURE_LIMIT = 5
+
 ########################################################################### {
-@TG_ART_BOT.message_handler(commands=['start'])
+# Return True if user are exists
+def CheckUserExists(message, userTelegramID) -> bool:
+
+    id = handler.GetDBId(userTelegramID)
+
+    if len(id) > 0:        
+        return True
+    else:                           
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
+        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
+
+    return False
+
+
+@TG_ART_BOT.message_handler(commands=['start', 'help'])
 def StartMessage(message):    
 
-    # markup = types.InlineKeyboardMarkup()    
-    # btnReg = types.InlineKeyboardButton("Регистрация", callback_data="Register")    
+    if (CheckUserExists(message.from_user.id)):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.BOT_DESCRIPTION)    
+    else:                
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.WELCOME_MESSAGE)    
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
+        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
 
-    markup = types.ReplyKeyboardMarkup()    
-    btnReg = types.KeyboardButton("Регистрация")    
+########################################################################### User register process {
 
-    markup.add(btnReg)
+TemporaryUserData = {}
+
+def AddUserDescription(userID, description):
+    TemporaryUserData[userID] = {}
+    TemporaryUserData[userID]['Description'] = description
+
+def AddUserBirthday(userID, birthday):
+    TemporaryUserData[userID]['Birthday'] = birthday
     
-    TG_ART_BOT.send_message(message.from_user.id, Messages.WELCOME_MESSAGE, reply_markup=markup)    
+def AddUserRContent(userID, agree):
+    TemporaryUserData[userID]['RContent'] = agree
+
+def AddUserUsername(userID, username):
+    TemporaryUserData[userID]['Username'] = username
+
+def GoToRegistration(message):    
+
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
+    TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
+###########################################################################################
+
+def GetProfileInfo(message):
+
+    AddUserDescription(message.from_user.id, message.text)
+    AddUserUsername(message.from_user.id, message.from_user.username)
+
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_BIRTHDAY_MESSAGE)    
+    TG_ART_BOT.register_next_step_handler(msg, GetBirthday)    
+###########################################################################################
+
+def GetBirthday(message):
+
+    AddUserBirthday(message.from_user.id, message.text)
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    y = types.KeyboardButton("Да")
+    n = types.KeyboardButton("Нет")
+
+    markup.add(y,n)
+
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_CONTENT_MARK, reply_markup=markup)    
+    TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
+###########################################################################################
+
+def GetRcontent(message):
+
+    result = 0
+
+    if (message.text == "Да"):
+        result = 1
+    elif (message.text == "Нет"):
+        result = 0
+    else:
+        msg = TG_ART_BOT.send_message(message.from_user.id, "Данные введены некорректно")    
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        y = types.KeyboardButton("Да")
+        n = types.KeyboardButton("Нет")
+
+        markup.add(y,n)
+
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_CONTENT_MARK, reply_markup=markup)    
+        TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
+        return
+
+
+    AddUserRContent(message.from_user.id, result)
+
+    ProcessUserData(message.from_user.id)
+
+    ToMainMenu(message)
+###########################################################################################
+
+def ProcessUserData(userTelegrammID):
+    handler.AddNewUser(userTelegrammID, TemporaryUserData[userTelegrammID]['Username'], TemporaryUserData[userTelegrammID]['Description'], TemporaryUserData[userTelegrammID]['Birthday'], TemporaryUserData[userTelegrammID]['RContent'], PICTURE_LIMIT)    
+    del TemporaryUserData[userTelegrammID]
+########################################################################### User register process }
+
 ########################################################################### }
 
 def ToMainMenu(message):
@@ -51,19 +146,25 @@ def ToProfileInfo(message):
 
 def ToPictureLine(message):
 
-    markup  = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-    next    = types.KeyboardButton("Следующий рисунок")
-    ranking = types.KeyboardButton("Оценить рисунок")
-    back    = types.KeyboardButton("Главное меню")
+    markup  = types.InlineKeyboardMarkup(resize_keyboard=True)
+    ranking = types.InlineKeyboardButton("Оценить рисунок")
 
     markup.add(next, ranking, back)
         
-    TG_ART_BOT.send_message(message.from_user.id, "PictureInfo", reply_markup=markup)
+    msg = TG_ART_BOT.send_message(message.from_user.id, "PictureInfo", reply_markup=markup)
+
+    kMarkup     = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    next        = types.KeyboardButton("Следующий рисунок")    
+    back        = types.KeyboardButton("Главное меню")
+
+    kMarkup.row(next)
+    kMarkup.row(back)
+
+    TG_ART_BOT.send_message(msg.from_user.id, reply_markup=kMarkup)
 
 def ToGalery(message):
 
-    markup      = types.ReplyKeyboardMarkup(resize_keyboard=True)    
+    markup      = types.ReplyKeyboardMarkup(resize_keyboard=True)        
     back        = types.KeyboardButton("Главное меню")
 
     markup.add(back)
@@ -85,53 +186,51 @@ def ToReview(message):
 ########################################################################### {
 @TG_ART_BOT.message_handler(content_types=['text'])
 def ButtonsHandler(message):
-    if message.text == 'Регистрация':     
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
-        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)             
 
-    elif message.text == "Главное меню":
-        ToMainMenu(message)
+    if CheckUserExists(message, message.from_user.id):    
 
-    elif message.text == "Мой профиль":
-        ToProfileInfo(message)                
+        if message.text == "Главное меню":
+            ToMainMenu(message)
 
-    elif message.text == "Моя галерея":
-        ToGalery(message)
+        elif message.text == "Мой профиль":
+            ToProfileInfo(message)                
+
+        elif message.text == "Моя галерея":
+            ToGalery(message)
+            
+        elif message.text == "Найти художника":
+            ToArtistSearch(message)        
+
+        elif message.text == "Мои отзывы":
+            ToReview(message)        
+
+        elif (message.text == "Начать просмотр") or (message.text == "Следующий рисунок"):
+            ToPictureLine(message)                
         
-    elif message.text == "Найти художника":
-        ToArtistSearch(message)        
-
-    elif message.text == "Мои отзывы":
-        ToReview(message)        
-
-    elif (message.text == "Начать просмотр") or (message.text == "Следующий рисунок"):
-        ToPictureLine(message)                
-    
-    else:
-        TG_ART_BOT.send_message(message.from_user.id, "Некорректная команда")
+        else:
+            TG_ART_BOT.send_message(message.from_user.id, "Некорректная команда")         
 ########################################################################### }
 
-########################################################################### User register process {
-def GetProfileInfo(message):
+########################################################################### {
+def CheckUserPicLimit(userID) -> bool:
 
-    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_BIRTHDAY_MESSAGE)    
-    TG_ART_BOT.register_next_step_handler(msg, GetBirthday)    
+    return False
 
-def GetBirthday(message):
+def UploadPicture(picture, userID, description) -> bool:
 
-    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_CONTENT_MARK)    
-    TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
+    return False
 
-def GetRcontent(message):
+@TG_ART_BOT.message_handler(content_types=['photo'])
+def PictureHandler(message):
 
+    userID = 0
 
-    ToMainMenu(message)
-
-########################################################################### User register process }
-
-
-
-
+    if CheckUserPicLimit(userID):
+        if UploadPicture(message.photo, userID, message.text):
+            TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)
+        else:
+            TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_LIMIT_REACHED)
     
-
-
+########################################################################### {

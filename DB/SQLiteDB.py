@@ -1,4 +1,4 @@
-from ADataBase import ADataBase
+from DB.ADataBase import ADataBase
 import sqlite3
 
 class SQLiteDataBase(ADataBase):    
@@ -15,7 +15,7 @@ class SQLiteDataBase(ADataBase):
 
         if ("SELECT" in query):
             cursor.execute(query)
-            result = cursor.fetchAll()
+            result = cursor.fetchall()
             conn.close()
 
             return result            
