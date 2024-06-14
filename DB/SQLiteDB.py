@@ -17,7 +17,7 @@ class SQLiteDataBase(ADataBase):
             cursor.execute(query)
             result = cursor.fetchall()
             conn.close()
-
+            
             return result            
         else:
             cursor.execute(query)

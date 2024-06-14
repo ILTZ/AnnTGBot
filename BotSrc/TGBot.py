@@ -4,6 +4,7 @@ import BotSrc.Messages as Messages
 import telebot
 from telebot import types
 from DB.SQLiteDBHandler import handler
+from DB.SQLiteDBHandler import UserInfo
 
 TG_ART_BOT = telebot.TeleBot(BotData.TG_TOKEN)
 
@@ -142,7 +143,12 @@ def ToProfileInfo(message):
     markup.row(redactInfo)
     markup.row(back)
     
-    TG_ART_BOT.send_message(message.from_user.id, Messages.PROFILE_INFO_MESSAGE, reply_markup=markup)    
+    userID   = handler.GetDBId(message.from_user.id)
+    userData = handler.GetUserInfo(userID)
+
+    answer = Messages.FormProfileInfo(userData[UserInfo.USER_NAME], userData[UserInfo.LINKS], userData[UserInfo.REVIEW_COUNT], userData[UserInfo.PICTURE_COUNT], userData[UserInfo.DESCRIPTION], userData[UserInfo.AVERAGE_RATING])
+
+    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=markup)    
 
 def ToPictureLine(message):
 

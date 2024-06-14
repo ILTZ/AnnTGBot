@@ -47,15 +47,17 @@ PICTURE_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "PictureReport
 	CONSTRAINT "UserPictureReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
 )'''
 
-REVIEW_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "ReviewReport" 
+REVIEW_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "Review" 
 (
 	"ID"	INTEGER NOT NULL UNIQUE,
-	"Text"	TEXT,
-	"ReviewID"	INTEGER NOT NULL,
 	"UserID"	INTEGER NOT NULL,
-	CONSTRAINT "ReviewReportID" FOREIGN KEY("ReviewID") REFERENCES Review(ID),
+	"PictureID"	INTEGER NOT NULL,
+	"Text"	TEXT NOT NULL,
+	"Rating"	INTEGER NOT NULL,
+	"Read"	INTEGER NOT NULL,
+	CONSTRAINT "PictureReviewID" FOREIGN KEY("PictureID") REFERENCES Picture(ID),
 	PRIMARY KEY("ID" AUTOINCREMENT),
-	CONSTRAINT "UserReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
+	CONSTRAINT "UserReviewID" FOREIGN KEY("UserID") REFERENCES User(ID)
 )'''
 
 REVIEW_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "ReviewReport" 
@@ -68,6 +70,17 @@ REVIEW_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "ReviewReport"
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	CONSTRAINT "UserReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
 )'''
+
+
+from enum import Enum
+
+class UserInfo(Enum):
+    USER_NAME       = 1
+    DESCRIPTION     = 2
+    LINKS           = 3
+    PICTURE_COUNT   = 4
+    AVERAGE_RATING  = 5
+    REVIEW_COUNT    = 6
 
 class SQLiteDBHandler(DBHandler):
 
@@ -121,6 +134,12 @@ class SQLiteDBHandler(DBHandler):
 
         return self.__dataBase.ExecQuery(query)
 
+    def GetUserPublishedPictures(self, userID):
+
+        query = f'''SELECT COUNT(ID) as Cnt FROM Picture WHERE UserID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)
+
     def GetUserLinks(self, userID):
 
         query = f'''SELECT * FROM Link WHERE UserID = {userID}'''
@@ -129,15 +148,37 @@ class SQLiteDBHandler(DBHandler):
 
     def GetUserInfo(self, userID):
 
-        query = f'''SELECT * FROM User WHERE TGUserID = {userID}'''
+        result = self.GetUserLinks(userID)
+        if (len(result) > 1):
+            links = ', '.join(result)
+        elif (len(result) == 1):
+            links = result[0]
+        else:
+            links = 'Нет ссылок'
 
-        return self.__dataBase.ExecQuery(query)
+        userData = {}
+
+        query = f'''SELECT UserName, Description, ReviewCounter FROM User where ID = {userID}'''
+        result = list(self.__dataBase.ExecQuery(query)[0])
+
+        userData[UserInfo.USER_NAME]      = result[0]
+        userData[UserInfo.DESCRIPTION]    = result[1]
+        userData[UserInfo.REVIEW_COUNT]   = result[2]
+        userData[UserInfo.LINKS]          = links
+        userData[UserInfo.PICTURE_COUNT]  = self.GetUserPublishedPictures(userID)[0][0]
+        userData[UserInfo.AVERAGE_RATING] = self.GetAverageRating(userID)
+        
+        return userData   
 
     def GetDBId(self, tgID):
 
         query = f'''SELECT ID FROM User WHERE TGUserID = {tgID}'''
+        
+        result = self.__dataBase.ExecQuery(query)
+        if (result == 1):
+            return result[0][0]
 
-        return self.__dataBase.ExecQuery(query)
+        return 
 
     def GetPictureReview(self, pictureID):
 
@@ -148,6 +189,12 @@ class SQLiteDBHandler(DBHandler):
     def GetRandomPicture(self, userID):
 
         pass
+
+    def GetAverageRating(self, userID):
+
+        query = f'''select AVG(Rating) as AvgRating FROM Review INNER JOIN Picture ON Review.PictureID = Picture.ID WHERE Picture.UserID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)  
 
 db = SQLiteDataBase("Test.db")
 
