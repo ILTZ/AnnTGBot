@@ -9,24 +9,26 @@ class SQLiteDataBase(ADataBase):
         pass
           
     def ExecQuery(self, query):
+        try:
+            conn = sqlite3.connect(super().DBFile())
+            cursor = conn.cursor()
 
-        conn = sqlite3.connect(super().DBFile())
-        cursor = conn.cursor()
+            if ("SELECT" in query):
+                cursor.execute(query)
+                result = cursor.fetchall()
+                conn.close()
+                
+                return result            
+            else:
+                cursor.execute(query)
 
-        if ("SELECT" in query):
-            cursor.execute(query)
-            result = cursor.fetchall()
-            conn.close()
-            
-            return result            
-        else:
-            cursor.execute(query)
+                conn.commit()
+                conn.close()                        
+                pass        
 
-            conn.commit()
-            conn.close()                        
-            pass        
-
-        return
+            return True
+        except:            
+            return False
     
 
     

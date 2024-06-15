@@ -71,7 +71,6 @@ REVIEW_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "ReviewReport"
 	CONSTRAINT "UserReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
 )'''
 
-
 from enum import Enum
 
 class UserInfo(Enum):
@@ -108,8 +107,8 @@ class SQLiteDBHandler(DBHandler):
 
     def AddNewPicture(self, userID, description, picture, rContetMark):
 
-        query = f'''INSERT INTO Picture (UserID, Description, PictureData, Rcontent) VALUES ({userID}, "{description}", {sqlite3.Binary(picture)}, {int(rContetMark)})'''        
-        self.__dataBase.ExecQuery(query)        
+        query = f'''INSERT INTO Picture (UserID, Description, PictureData, Rcontent) VALUES ({userID}, "{description}", {picture}, {rContetMark})'''        
+        return self.__dataBase.ExecQuery(query)        
 
     def AddUserLink(self, userID, link):
 
@@ -170,12 +169,18 @@ class SQLiteDBHandler(DBHandler):
         
         return userData   
 
+    def GetUserPicktureLimit(self, userID):
+
+        query = f'''SELECT PictureSlots FROM User WHERE ID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)
+    
     def GetDBId(self, tgID):
 
         query = f'''SELECT ID FROM User WHERE TGUserID = {tgID}'''
         
         result = self.__dataBase.ExecQuery(query)
-        if (result == 1):
+        if (len(result) == 1):
             return result[0][0]
 
         return 
@@ -186,6 +191,12 @@ class SQLiteDBHandler(DBHandler):
 
         return self.__dataBase.ExecQuery(query)
     
+    def GetUserRContentAgree(self, userID):
+
+        query = f'''SELECT Rcontent from User WHERE ID = {userID}'''
+
+        return bool(self.__dataBase.ExecQuery(query)[0][0])
+
     def GetRandomPicture(self, userID):
 
         pass
@@ -196,6 +207,5 @@ class SQLiteDBHandler(DBHandler):
 
         return self.__dataBase.ExecQuery(query)  
 
-db = SQLiteDataBase("Test.db")
-
+db      = SQLiteDataBase("Test.db")
 handler = SQLiteDBHandler(db)

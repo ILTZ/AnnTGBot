@@ -16,11 +16,11 @@ def CheckUserExists(message, userTelegramID) -> bool:
 
     id = handler.GetDBId(userTelegramID)
 
-    if len(id) > 0:        
-        return True
+    if id == None: 
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE)           
+        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)                   
     else:                           
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
-        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
+        return True
 
     return False
 
@@ -32,7 +32,7 @@ def StartMessage(message):
         TG_ART_BOT.send_message(message.from_user.id, Messages.BOT_DESCRIPTION)    
     else:                
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.WELCOME_MESSAGE)    
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE)           
         TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
 
 ########################################################################### User register process {
@@ -54,7 +54,7 @@ def AddUserUsername(userID, username):
 
 def GoToRegistration(message):    
 
-    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_PROFILE_INFO_MESSAGE)           
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE)           
     TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
 ###########################################################################################
 
@@ -63,7 +63,7 @@ def GetProfileInfo(message):
     AddUserDescription(message.from_user.id, message.text)
     AddUserUsername(message.from_user.id, message.from_user.username)
 
-    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_BIRTHDAY_MESSAGE)    
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_BIRTHDAY_MESSAGE)    
     TG_ART_BOT.register_next_step_handler(msg, GetBirthday)    
 ###########################################################################################
 
@@ -77,7 +77,7 @@ def GetBirthday(message):
 
     markup.add(y,n)
 
-    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_CONTENT_MARK, reply_markup=markup)    
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
     TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
 ###########################################################################################
 
@@ -98,7 +98,7 @@ def GetRcontent(message):
 
         markup.add(y,n)
 
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.GET_CONTENT_MARK, reply_markup=markup)    
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
         TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
         return
 
@@ -214,28 +214,88 @@ def ButtonsHandler(message):
             ToPictureLine(message)                
         
         else:
-            TG_ART_BOT.send_message(message.from_user.id, "Некорректная команда")         
+            ToMainMenu(message)
 ########################################################################### }
 
 ########################################################################### {
+import base64
+
+def DownloadFile(fileID):
+    file_info   = TG_ART_BOT.get_file(fileID)
+    return  TG_ART_BOT.download_file(file_info.file_path)
+
 def CheckUserPicLimit(userID) -> bool:
+    
+    published   = handler.GetUserPublishedPictures(userID)
+    limit       = handler.GetUserPicktureLimit(userID)
+
+    if (published < limit):
+        return True
 
     return False
+    
+def UploadPicture(message, **data):
+        
+    if (message.text == "Да"):
+        rContent = 1
+    elif(message.text == 'Нет'):
+        rContent = 0
+    elif(message.text == "Отменить загрузку"):
+        ToMainMenu(message)
+    else:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        y = types.KeyboardButton("Да")
+        n = types.KeyboardButton("Нет")
+        c = types.KeyboardButton("Отменить загрузку")
 
-def UploadPicture(picture, userID, description) -> bool:
+        markup.add(y, n)
+        markup.row(c)                
 
-    return False
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.IS_R_CONTENT, reply_markup=markup)
+        TG_ART_BOT.register_next_step_handler(msg, UploadPicture, ID = data['ID'], Desc = data['Desc'], PhotoID = data['PhotoID'])
 
-@TG_ART_BOT.message_handler(content_types=['photo'])
+        return
+        
+    loaded = DownloadFile(data['PhotoID'])
+
+    if (handler.AddNewPicture(data['ID'], data['Desc'], loaded, rContent)):
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)        
+    else:
+        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
+
+    ToMainMenu(msg)
+
+from io import BytesIO
+
+@TG_ART_BOT.message_handler(content_types=['photo', 'text'])
 def PictureHandler(message):
 
-    userID = 0
+    userID = handler.GetDBId(message.from_user.id)
 
-    if CheckUserPicLimit(userID):
-        if UploadPicture(message.photo, userID, message.text):
-            TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)
+    if CheckUserPicLimit(userID) and (message.photo):    
+        if handler.GetUserRContentAgree(userID):
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            y = types.KeyboardButton("Да")
+            n = types.KeyboardButton("Нет")
+
+            markup.add(y, n)
+
+            file_id     = message.photo[-1].file_id                        
+            text = message.caption
+
+            msg = TG_ART_BOT.send_message(message.from_user.id, Messages.IS_R_CONTENT, reply_markup=markup)            
+            TG_ART_BOT.register_next_step_handler(msg, UploadPicture, PhotoID=file_id, Desc=text, ID=userID)                       
         else:
-            TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
+
+            file_id = message.photo[-1].file_id                                    
+            loaded  = DownloadFile(file_id)
+
+            if handler.AddNewPicture(userID, text, loaded, 0):
+                msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_SUCCESS)        
+            else:
+                msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_FAILED)
+
+            ToMainMenu(msg)
     else:
         TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_LIMIT_REACHED)
     

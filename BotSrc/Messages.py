@@ -1,11 +1,11 @@
 
 WELCOME_MESSAGE = "Привет артистам"
 
-GET_PROFILE_INFO_MESSAGE = "Ввдеите пару строк о себе, которые будут отображаться в профиле"
+REG_GET_PROFILE_INFO_MESSAGE = "Ввдеите пару строк о себе, которые будут отображаться в профиле"
 
-GET_BIRTHDAY_MESSAGE = "Введите дату рождения"
+REG_GET_BIRTHDAY_MESSAGE = "Введите дату рождения"
 
-GET_CONTENT_MARK = "Отображать изображения 18+ в ленте?"
+REG_GET_CONTENT_MARK = "Отображать изображения 18+ в ленте?"
 
 REGISTER_NEW_USER_MESSAGE = "REGISTER_NEW_USER_MESSAGE"
 
@@ -24,6 +24,8 @@ USER_NOT_FOUND = "Вы не зарегестрированы в боте. Про
 USER_ALREADY_EXISTS = "Пользователь уже зарегестрирован в системе"
 
 REGISTER_NOT_FINISHED = "Вы не завершили регистрацию"
+
+IS_R_CONTENT = "Это изображение 18+ ?"
 
 BOT_DESCRIPTION = "Ето бот"
 
