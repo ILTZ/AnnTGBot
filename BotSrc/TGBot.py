@@ -226,7 +226,7 @@ def ToGalery(message):
         delete = types.InlineKeyboardButton("Удалить изображение", callback_data=f"DelPic:{pictureData[PictureInfo.ROW_ID]}")
         markup.add(delete)
 
-        text = Messages.FormPictureCaption(pictureData[PictureInfo.DESCRIPTION], round(pictureData[PictureInfo.AVERAGE_RATING], 2))
+        text = Messages.FormPictureCaption(pictureData[PictureInfo.DESCRIPTION], round(pictureData[PictureInfo.AVERAGE_RATING], 1))
 
         TG_ART_BOT.send_photo(chat_id=message.from_user.id, photo=pictureData[PictureInfo.TG_FILE_ID], caption=text, reply_markup=markup)                    
 
