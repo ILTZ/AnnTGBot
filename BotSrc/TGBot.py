@@ -4,7 +4,10 @@ import BotSrc.Messages as Messages
 import telebot
 from telebot import types
 from DB.SQLiteDBHandler import handler
+
 from DB.SQLiteDBHandler import UserInfo
+from DB.SQLiteDBHandler import PictureInfo
+from DB.SQLiteDBHandler import PictureReview
 
 TG_ART_BOT = telebot.TeleBot(BotData.TG_TOKEN)
 
@@ -37,21 +40,6 @@ def StartMessage(message):
 
 ########################################################################### User register process {
 
-TemporaryUserData = {}
-
-def AddUserDescription(userID, description):
-    TemporaryUserData[userID] = {}
-    TemporaryUserData[userID]['Description'] = description
-
-def AddUserBirthday(userID, birthday):
-    TemporaryUserData[userID]['Birthday'] = birthday
-    
-def AddUserRContent(userID, agree):
-    TemporaryUserData[userID]['RContent'] = agree
-
-def AddUserUsername(userID, username):
-    TemporaryUserData[userID]['Username'] = username
-
 def GoToRegistration(message):    
 
     msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE)           
@@ -60,16 +48,11 @@ def GoToRegistration(message):
 
 def GetProfileInfo(message):
 
-    AddUserDescription(message.from_user.id, message.text)
-    AddUserUsername(message.from_user.id, message.from_user.username)
-
     msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_BIRTHDAY_MESSAGE)    
-    TG_ART_BOT.register_next_step_handler(msg, GetBirthday)    
+    TG_ART_BOT.register_next_step_handler(msg, GetBirthday, message.from_user.username, message.text)    
 ###########################################################################################
 
-def GetBirthday(message):
-
-    AddUserBirthday(message.from_user.id, message.text)
+def GetBirthday(message, *argv):
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     y = types.KeyboardButton("Да")
@@ -78,10 +61,10 @@ def GetBirthday(message):
     markup.add(y,n)
 
     msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
-    TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
+    TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], message.text)    
 ###########################################################################################
 
-def GetRcontent(message):
+def GetRcontent(message, *argv):
 
     result = 0
 
@@ -99,20 +82,16 @@ def GetRcontent(message):
         markup.add(y,n)
 
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
-        TG_ART_BOT.register_next_step_handler(msg, GetRcontent)    
+        TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], argv[2], result)    
         return
 
-
-    AddUserRContent(message.from_user.id, result)
-
-    ProcessUserData(message.from_user.id)
+    ProcessUserData(message.from_user.id, argv[0], argv[1], argv[2])
 
     ToMainMenu(message)
 ###########################################################################################
 
-def ProcessUserData(userTelegrammID):
-    handler.AddNewUser(userTelegrammID, TemporaryUserData[userTelegrammID]['Username'], TemporaryUserData[userTelegrammID]['Description'], TemporaryUserData[userTelegrammID]['Birthday'], TemporaryUserData[userTelegrammID]['RContent'], PICTURE_LIMIT)    
-    del TemporaryUserData[userTelegrammID]
+def ProcessUserData(userTelegrammID, username, descripiton, birthday, rContent):
+    handler.AddNewUser(userTelegrammID, username, descripiton, birthday, rContent, PICTURE_LIMIT)        
 ########################################################################### User register process }
 
 ########################################################################### }
@@ -150,32 +129,50 @@ def ToProfileInfo(message):
 
     TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=markup)    
 
-def ToPictureLine(message):
+def ToPictureLine(message):    
+    
+    userID = handler.GetDBId(message.from_user.id)
+    pic = handler.GetRandomPicture(0, handler.GetUserRContentAgree(userID))
 
-    markup  = types.InlineKeyboardMarkup(resize_keyboard=True)
-    ranking = types.InlineKeyboardButton("Оценить рисунок")
+    if (len(pic) < 1):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.NO_PICTURE_FOR_USER)
+        ToMainMenu(message)
 
-    markup.add(next, ranking, back)
-        
-    msg = TG_ART_BOT.send_message(message.from_user.id, "PictureInfo", reply_markup=markup)
+        return
+    
+    info = pic[0]
 
-    kMarkup     = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    next        = types.KeyboardButton("Следующий рисунок")    
-    back        = types.KeyboardButton("Главное меню")
+    text = Messages.FormPictureCaption(info[PictureInfo.DESCRIPTION], info[PictureInfo.AVERAGE_RATING], info[PictureInfo.AUTOR_USERNAME])
 
-    kMarkup.row(next)
-    kMarkup.row(back)
+    markup  = types.InlineKeyboardMarkup()
+    ranking = types.InlineKeyboardButton("Оценить",      callback_data=f"RatingPic:{info[PictureInfo.ROW_ID]}")
+    report  = types.InlineKeyboardButton("Пожаловаться", callback_data=f"RepPic:{info[PictureInfo.ROW_ID]}")
 
-    TG_ART_BOT.send_message(msg.from_user.id, reply_markup=kMarkup)
+    markup.row(ranking)    
+    markup.row(report)
 
+    TG_ART_BOT.send_photo(message.from_user.id, photo=info[PictureInfo.TG_FILE_ID], caption=text, reply_markup=markup)        
+    
 def ToGalery(message):
+    
+    userID = handler.GetDBId(message.from_user.id)
+    pictures = handler.GetUserPictures(userID)
 
     markup      = types.ReplyKeyboardMarkup(resize_keyboard=True)        
     back        = types.KeyboardButton("Главное меню")
-
     markup.add(back)
 
-    TG_ART_BOT.send_message(message.from_user.id, "PictureInfo", reply_markup=markup)    
+    TG_ART_BOT.send_message(message.from_user.id, text=Messages.GALERY_MESSAGE, reply_markup=markup)    
+
+    for pictureData in pictures:
+        
+        markup = types.InlineKeyboardMarkup()
+        delete = types.InlineKeyboardButton("Удалить изображение", callback_data=f"DelPic:{pictureData[PictureInfo.ROW_ID]}")
+        markup.add(delete)
+
+        text = Messages.FormPictureCaption(pictureData[PictureInfo.DESCRIPTION], pictureData[PictureInfo.AVERAGE_RATING])
+
+        TG_ART_BOT.send_photo(chat_id=message.from_user.id, photo=pictureData[PictureInfo.TG_FILE_ID], caption=text, reply_markup=markup)                    
 
 def ToArtistSearch(message):
     pass
@@ -187,8 +184,22 @@ def ToReview(message):
 
     markup.add(back)
 
-    TG_ART_BOT.send_message(message.from_user.id, "Review", reply_markup=markup)    
+    userID   = handler.GetDBId(message.from_user.id)
+    pictures = handler.GetUserPictures(userID)
 
+    TG_ART_BOT.send_message(message.from_user.id, "Ваши отзывы", reply_markup=markup)    
+
+    for row in pictures:
+        
+        reviews = handler.GetPictureReview(row[PictureInfo.ROW_ID])
+
+        if (len(reviews) > 0):
+            caption = reviews[PictureReview.TEXT]
+        else:
+            caption = Messages.NO_REVIEW_FOR_PICTURE
+            
+        TG_ART_BOT.send_photo(message.from_user.id, photo=row[PictureInfo.TG_FILE_ID], caption=caption)                    
+    
 ########################################################################### {
 @TG_ART_BOT.message_handler(content_types=['text'])
 def ButtonsHandler(message):
@@ -210,19 +221,27 @@ def ButtonsHandler(message):
         elif message.text == "Мои отзывы":
             ToReview(message)        
 
-        elif (message.text == "Начать просмотр") or (message.text == "Следующий рисунок"):
-            ToPictureLine(message)                
-        
+        elif (message.text == "Начать просмотр"):
+            
+            kMarkup     = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            next        = types.KeyboardButton("Следующий рисунок")    
+            back        = types.KeyboardButton("Главное меню")
+
+            kMarkup.row(next)
+            kMarkup.row(back)
+            
+            TG_ART_BOT.send_message(message.from_user.id, text=Messages.SWITCH_TO_PICTURE_LINE, reply_markup=kMarkup)
+            
+            ToPictureLine(message)   
+
+        elif (message.text == "Следующий рисунок"):           
+            ToPictureLine(message)   
+
         else:
             ToMainMenu(message)
 ########################################################################### }
 
 ########################################################################### {
-import base64
-
-def DownloadFile(fileID):
-    file_info   = TG_ART_BOT.get_file(fileID)
-    return  TG_ART_BOT.download_file(file_info.file_path)
 
 def CheckUserPicLimit(userID) -> bool:
     
@@ -254,18 +273,14 @@ def UploadPicture(message, **data):
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.IS_R_CONTENT, reply_markup=markup)
         TG_ART_BOT.register_next_step_handler(msg, UploadPicture, ID = data['ID'], Desc = data['Desc'], PhotoID = data['PhotoID'])
 
-        return
-        
-    loaded = DownloadFile(data['PhotoID'])
+        return            
 
-    if (handler.AddNewPicture(data['ID'], data['Desc'], loaded, rContent)):
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)        
+    if (handler.AddNewPicture(data['ID'], data['Desc'], data['PhotoID'], rContent)):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)                
     else:
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
 
     ToMainMenu(msg)
-
-from io import BytesIO
 
 @TG_ART_BOT.message_handler(content_types=['photo', 'text'])
 def PictureHandler(message):
@@ -287,10 +302,9 @@ def PictureHandler(message):
             TG_ART_BOT.register_next_step_handler(msg, UploadPicture, PhotoID=file_id, Desc=text, ID=userID)                       
         else:
 
-            file_id = message.photo[-1].file_id                                    
-            loaded  = DownloadFile(file_id)
+            file_id = message.photo[-1].file_id                                                
 
-            if handler.AddNewPicture(userID, text, loaded, 0):
+            if handler.AddNewPicture(userID, text, file_id, 0):
                 msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_SUCCESS)        
             else:
                 msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_FAILED)
@@ -300,3 +314,58 @@ def PictureHandler(message):
         TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_LIMIT_REACHED)
     
 ########################################################################### {
+
+########################################################################### {
+@TG_ART_BOT.callback_query_handler(func=lambda call: True)
+def cbHandler(call):
+
+    comand, data = call.data.split(':')
+
+    if (comand == 'DelPic'):
+        if handler.RemovePicture(data):
+            TG_ART_BOT.send_message(call.from_user.id, Messages.PICTURE_DELETE_SUCCESS)
+        else:
+            TG_ART_BOT.send_message(call.from_user.id, Messages.PICTURE_DELETE_FAILED)
+
+    elif(comand == 'RatingPic'):
+        
+        markup = types.InlineKeyboardMarkup()
+                
+        for i in range (1, 6):
+            btn = types.InlineKeyboardButton(text=f'{i}', callback_data=f'RatePic:{i}-{data}')
+            markup.add(btn)        
+
+        TG_ART_BOT.send_message(call.from_user.id, Messages.RATE_PICTURE_MSG, reply_markup=markup)        
+
+    elif(comand == 'RatePic'):
+        rating, picID = data.split('-')
+
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.DESCRIBE_PICTURE_RATE_MSG)
+        TG_ART_BOT.register_next_step_handler(msg, reviewData, picID, rating)
+        
+    elif(comand == 'RepPic'):
+
+        pass
+
+    elif(comand == 'RepRev'):
+
+        pass
+        
+
+def reviewData(message, *argv):
+
+    if (message.text == 'Главное меню'):
+        ToMainMenu(message)
+    elif(message.text == 'Следующий рисунок'):
+        ToPictureLine(message)
+
+    userID = handler.GetDBId(message.from_user.id)
+    
+    if handler.AddPictureReview(userID, argv[0], message.text, argv[1]):
+        text = Messages.REVIEW_SUCCESS_ADDED
+        handler.UpdateAverageRating(argv[0])
+    else:
+        text = Messages.REVIEW_FAILED_ADDED
+               
+    TG_ART_BOT.send_message(message.from_user.id, text=text)
+

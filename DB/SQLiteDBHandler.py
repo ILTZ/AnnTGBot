@@ -30,8 +30,9 @@ PICTURE_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "Picture"
     "ID"	INTEGER NOT NULL UNIQUE,
     "UserID" INTEGER NOT NULL,
     "Description"	TEXT,
-    "PictureData"	BLOB,
+    "PictureID"	TEXT NOT NULL,
     "Rcontent"	INTEGER,
+    "AverageRating" REAL,
     CONSTRAINT "UserPictureID" FOREIGN KEY("UserID") REFERENCES User(ID),
     PRIMARY KEY("ID" AUTOINCREMENT)
 )'''
@@ -42,6 +43,7 @@ PICTURE_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "PictureReport
 	"Text"	TEXT,
 	"PictureID"	INTEGER NOT NULL,
 	"UserID"	INTEGER NOT NULL,
+    UNIQUE(PictureID, UserID),
 	CONSTRAINT "PictureReportID" FOREIGN KEY("PictureID") REFERENCES Picture(ID),
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	CONSTRAINT "UserPictureReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
@@ -55,6 +57,7 @@ REVIEW_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "Review"
 	"Text"	TEXT NOT NULL,
 	"Rating"	INTEGER NOT NULL,
 	"Read"	INTEGER NOT NULL,
+    UNIQUE(UserID, PictureID),
 	CONSTRAINT "PictureReviewID" FOREIGN KEY("PictureID") REFERENCES Picture(ID),
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	CONSTRAINT "UserReviewID" FOREIGN KEY("UserID") REFERENCES User(ID)
@@ -66,20 +69,55 @@ REVIEW_REPORT_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "ReviewReport"
 	"Text"	TEXT,
 	"ReviewID"	INTEGER NOT NULL,
 	"UserID"	INTEGER NOT NULL,
+    UNIQUE(ReviewID, UserID),
 	CONSTRAINT "ReviewReportID" FOREIGN KEY("ReviewID") REFERENCES Review(ID),
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	CONSTRAINT "UserReportID" FOREIGN KEY("UserID") REFERENCES User(ID)
 )'''
 
+PICTURE_DELETE_TRIGGER = '''CREATE TRIGGER PictureDeleted AFTER DELETE ON Picture
+BEGIN
+  DELETE FROM Review
+  WHERE Review.PictureID = OLD.ID;
+  DELETE FROM PictureReport
+  WHERE PictureReport.PictureID = OLD.ID;
+END'''
+
+REVIEW_DELETE_TRIGGER = '''CREATE TRIGGER ReviewDeleted AFTER DELETE ON Review
+BEGIN
+  DELETE FROM ReviewReport
+  WHERE ReviewReport.ReviewID = OLD.ID;
+END'''
+
+USER_DELETE_TRIGGER = '''CREATE TRIGGER UserDeleted AFTER DELETE ON User
+BEGIN
+  DELETE FROM Picture
+  WHERE Picture.UserID = OLD.ID;
+  
+  DELETE FROM Link
+  WHERE Link.UserID = OLD.ID;
+END
+'''
+
 from enum import Enum
 
 class UserInfo(Enum):
-    USER_NAME       = 1
+    USER_NAME               = 1
+    DESCRIPTION             = 2
+    LINKS                   = 3
+    PICTURE_COUNT           = 4
+    AVERAGE_RATING          = 5
+    REVIEW_COUNT            = 6
+
+class PictureInfo(Enum):
+    ROW_ID          = 1
     DESCRIPTION     = 2
-    LINKS           = 3
-    PICTURE_COUNT   = 4
-    AVERAGE_RATING  = 5
-    REVIEW_COUNT    = 6
+    TG_FILE_ID      = 3
+    AVERAGE_RATING  = 4
+    AUTOR_USERNAME  = 5
+
+class PictureReview(Enum):
+    TEXT = 1
 
 class SQLiteDBHandler(DBHandler):
 
@@ -96,6 +134,10 @@ class SQLiteDBHandler(DBHandler):
         self.__dataBase.ExecQuery(REVIEW_TABLE_CREATE_QUERY)
         self.__dataBase.ExecQuery(REVIEW_REPORT_TABLE_CREATE_QUERY)
 
+        self.__dataBase.ExecQuery(PICTURE_DELETE_TRIGGER)
+        self.__dataBase.ExecQuery(REVIEW_DELETE_TRIGGER)
+        self.__dataBase.ExecQuery(USER_DELETE_TRIGGER)
+
         pass
 
     def AddNewUser(self, tgID, userName, description, birthday, rContent, startPictureSlots):              
@@ -103,11 +145,11 @@ class SQLiteDBHandler(DBHandler):
         query = f'''INSERT INTO User (TGUserID, UserName, Description, Birthday, Rcontent, ReviewCounter, PictureSlots) VALUES
         ({tgID}, "{userName}", "{description}", "{birthday}", {int(rContent)}, 0, {startPictureSlots})'''
         
-        self.__dataBase.ExecQuery(query)            
+        return self.__dataBase.ExecQuery(query)            
 
-    def AddNewPicture(self, userID, description, picture, rContetMark):
+    def AddNewPicture(self, userID, description, pictureID, rContetMark):
 
-        query = f'''INSERT INTO Picture (UserID, Description, PictureData, Rcontent) VALUES ({userID}, "{description}", {picture}, {rContetMark})'''        
+        query = f'''INSERT INTO Picture (UserID, Description, PictureID, Rcontent, AverageRating) VALUES ({userID}, "{description}", "{pictureID}", {rContetMark}, 0.0)'''        
         return self.__dataBase.ExecQuery(query)        
 
     def AddUserLink(self, userID, link):
@@ -119,17 +161,46 @@ class SQLiteDBHandler(DBHandler):
             return False
 
         query = f'''INSERT INTO Link (Link, UserID) VALUES ("{link}", {userID})'''
-        self.__dataBase.ExecQuery(query)
+
+        return self.__dataBase.ExecQuery(query)
 
     def AddPictureReview(self, reviewerID, pictureID, text, rating):
 
         query = f'''INSERT INTO Review (UserID, PictureID, Text, Rating, Read) VALUES ({reviewerID}, {pictureID}, "{text}", {rating}, 0)'''
 
-        self.__dataBase.ExecQuery(query)
+        return self.__dataBase.ExecQuery(query)
 
-    def GetUserPictures(self, userID, rContent):
+    def AddPictureReport(self, reviewerID, pictureID, reportText):
 
-        query = f'''SELECT * FROM Picture WHERE UserID = {userID} AND RContent = {int(rContent)}'''
+        query = f'''INSER INTO PictureReport (Text, PictureID, UserID) VALUES ("{reportText}", {pictureID}, {reviewerID})'''
+
+        return self.__dataBase.ExecQuery(query)
+
+    def AddReviewReport(self, reviewID, userID, text):
+
+        query = f'''INSER INTO ReviewReport (Text, ReviewID, UserID) VALUES ("{text}", {reviewID}, {userID})'''
+
+        return self.__dataBase.ExecQuery(query)
+
+    def GetUserPictures(self, userID) -> list[tuple[PictureInfo: any]]:
+
+        query = f'''SELECT ID, Description, PictureID, AverageRating FROM Picture WHERE UserID = {userID}'''
+
+        result = self.__dataBase.ExecQuery(query)
+
+        temp = []
+
+        if (len(result) < 1):
+            return temp
+
+        for row in result:
+            temp.append({PictureInfo.ROW_ID: row[0], PictureInfo.DESCRIPTION: row[1], PictureInfo.TG_FILE_ID: row[2], PictureInfo.AVERAGE_RATING: row[3]})
+
+        return temp    
+
+    def RemovePicture(self, pictureID):
+
+        query = f'''DELETE FROM Picture WHERE ID = {pictureID}'''
 
         return self.__dataBase.ExecQuery(query)
 
@@ -145,7 +216,7 @@ class SQLiteDBHandler(DBHandler):
 
         return self.__dataBase.ExecQuery(query)
 
-    def GetUserInfo(self, userID):
+    def GetUserInfo(self, userID) -> list[tuple[UserInfo: any]]:
 
         result = self.GetUserLinks(userID)
         if (len(result) > 1):
@@ -187,9 +258,19 @@ class SQLiteDBHandler(DBHandler):
 
     def GetPictureReview(self, pictureID):
 
-        query = f'''SELECT * FROM Review WHERE PictureID = {pictureID}'''
+        query = f'''SELECT Text FROM Review WHERE PictureID = {pictureID}'''        
 
-        return self.__dataBase.ExecQuery(query)
+        result = self.__dataBase.ExecQuery(query)
+
+        revs = {}
+
+        if (len(result) < 1):
+            return revs
+
+        for row in result:
+            revs = {PictureReview.TEXT: row[0]}
+
+        return revs
     
     def GetUserRContentAgree(self, userID):
 
@@ -197,15 +278,41 @@ class SQLiteDBHandler(DBHandler):
 
         return bool(self.__dataBase.ExecQuery(query)[0][0])
 
-    def GetRandomPicture(self, userID):
+    def GetRandomPicture(self, userID, rContent) -> list[tuple[PictureInfo: any]]:
+        
+        if (rContent == 0):
+            query = f'''SELECT UserName, Picture.ID, Picture.Description, Picture.PictureID, Picture.AverageRating 
+                        FROM Picture INNER JOIN User ON Picture.UserID = User.ID 
+                        WHERE UserID != {userID} AND Rcontent = {rContent} ORDER BY RANDOM() LIMIT 1'''
+        else:
+            query = f'''SELECT UserName, Picture.ID, Picture.Description, Picture.PictureID, Picture.AverageRating 
+                        FROM Picture INNER JOIN User ON Picture.UserID = User.ID 
+                        WHERE UserID != {userID} ORDER BY RANDOM() LIMIT 1'''
 
-        pass
+        result = self.__dataBase.ExecQuery(query)
+
+        temp = []
+
+        if (len(result) < 1):
+            return temp
+
+        row = result[0]
+        
+        temp.append({PictureInfo.AUTOR_USERNAME: row[0], PictureInfo.ROW_ID: row[1], PictureInfo.DESCRIPTION: row[2], PictureInfo.TG_FILE_ID: row[3], PictureInfo.AVERAGE_RATING: row[4]})
+
+        return temp
 
     def GetAverageRating(self, userID):
 
         query = f'''select AVG(Rating) as AvgRating FROM Review INNER JOIN Picture ON Review.PictureID = Picture.ID WHERE Picture.UserID = {userID}'''
 
         return self.__dataBase.ExecQuery(query)  
+  
+    def UpdateAverageRating(self, pictureID):
+
+        query = f'''UPDATE Picture SET AverageRating = (SELECT AVG(Rating) FROM Review WHERE Review.PictureID = {pictureID}) WHERE Picture.ID = {pictureID}'''
+
+        self.__dataBase.ExecQuery(query)
 
 db      = SQLiteDataBase("Test.db")
 handler = SQLiteDBHandler(db)
