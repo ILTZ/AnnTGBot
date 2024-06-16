@@ -403,11 +403,11 @@ def PictureHandler(message):
             text    = message.caption
 
             if handler.AddNewPicture(userID, text, file_id, 0):
-                msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_SUCCESS)        
+                TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)        
             else:
-                msg = TG_ART_BOT.send_message(message, Messages.PROCESS_FAILED)
+                TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
 
-            ToMainMenu(msg)
+            ToMainMenu(message)
     else:
         TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_LIMIT_REACHED)
     
