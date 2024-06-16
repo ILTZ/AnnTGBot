@@ -37,9 +37,6 @@ REG_GET_CONTENT_MARK = '''Так как вам уже исполнилось 18,
 Вы хотите видеть и загружать контент 18+?'''
 
 
-REG_NEW_USER_MESSAGE = "REGISTER_NEW_USER_MESSAGE"
-
-
 REDACT_LINKS_MSG = "Введите новые ссылки на свои ресурсы, разделяя каждую запятой"
 
 REDACT_DESCRIPTION_MSG = "Введите новое описание профиля, оно будет доступно остальным."
@@ -83,9 +80,9 @@ PROFILE_MESSAGE = '''Главное меню. \n
 считаться оставленная под изображением подпись, 
 его будут видеть другие пользователи, оценивающие эту картину.'''
 
-PROFILE_INFO_MESSAGE = "PROFILE_INFO_MESSAGE"
+PROFILE_INFO_MESSAGE = "Ваш профиль"
 
-AUTOR_SEARCH_MODE = "Введите username автора"
+AUTOR_SEARCH_MODE = "Введите имя пользователя Телеграмм"
 
 AUTOR_NOT_FOUND = "Автор не найден"
 

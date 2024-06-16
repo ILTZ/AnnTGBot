@@ -48,7 +48,6 @@ def StartMessage(message):
 def GoToRegistration(message):    
 
     if (message.text == "Начать регистрацию"):
-        TG_ART_BOT.send_message(message.from_user.id, Messages.REG_NEW_USER_MESSAGE)    
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_BIRTHDAY_MESSAGE)           
         TG_ART_BOT.register_next_step_handler(msg, GetBirthday)    
 
