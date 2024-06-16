@@ -31,12 +31,12 @@ class SQLiteDataBase(ADataBase):
 
             cursor.execute(query)
             result = cursor.fetchall()
-            conn.close()
-                
+            conn.close()                            
+        
             return result     
         
         except:
-            return False
+            return None
         
     
 

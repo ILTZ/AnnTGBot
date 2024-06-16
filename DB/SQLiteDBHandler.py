@@ -156,12 +156,6 @@ class SQLiteDBHandler(DBHandler):
 
     def AddUserLink(self, userID, link):
 
-        query = f'''SELECT Link from Link WHERE UserID = {userID}'''
-
-        result = self.__dataBase.ExecQuery(query)
-        if (len(result) > 0):
-            return False
-
         query = f'''INSERT INTO Link (Link, UserID) VALUES ("{link}", {userID})'''
 
         return self.__dataBase.ExecQuery(query)
@@ -303,6 +297,18 @@ class SQLiteDBHandler(DBHandler):
         query = f'''select AVG(Rating) as AvgRating FROM Review INNER JOIN Picture ON Review.PictureID = Picture.ID WHERE Picture.UserID = {userID}'''
 
         return self.__dataBase.SelectQuery(query)[0][0] 
+
+    def FindUser(self, userName):
+        
+        query = f'''SELECT ID FROM User WHERE UserName = "{userName}"'''
+
+        result = self.__dataBase.SelectQuery(query)
+
+        if ((result == None) or (len(result) < 1)):
+            return None
+        
+        return result[0][0]
+        
 
 
     def UpdateLinks(self, userID, text):
