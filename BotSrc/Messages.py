@@ -115,7 +115,7 @@ ArtChoose – это бот, способный помочь вам в осво�
 
 def FormProfileInfo(username, links, reviewCounter, published, description, averageRating):
 
-    text = f'''@{username}\nОписание \- {description}\nСсылки \- '''
+    text = f'''@{username}\nОписание - {description}\nСсылки - '''
     
     if (len(links) > 0):
         text = text + links
@@ -124,7 +124,7 @@ def FormProfileInfo(username, links, reviewCounter, published, description, aver
 
     text = text + "\n"
 
-    text = text + f'''Опубликовано работ \- {published}\nСредняя оценка работ \- {averageRating}\nОценено чужих работ \- {reviewCounter}'''
+    text = text + f'''Опубликовано работ - {published}\nСредняя оценка работ - {averageRating}\nОценено чужих работ - {reviewCounter}'''
 
     return text
 

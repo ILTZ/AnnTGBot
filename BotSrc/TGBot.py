@@ -185,7 +185,7 @@ def ToProfileInfo(message):
     iMarkup.row(profile)
     iMarkup.row(delete)
 
-    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=iMarkup, parse_mode='MarkdownV2')
+    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=iMarkup)
 
 def ToPictureLine(message):    
     
