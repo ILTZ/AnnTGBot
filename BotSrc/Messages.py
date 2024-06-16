@@ -114,7 +114,22 @@ ArtChoose – это бот, способный помочь вам в осво�
 
 
 def FormProfileInfo(username, links, reviewCounter, published, description, averageRating):
-    return f'''@{username}\nОписание - {description}\nСсылки - {links}\nОпубликовано работ - {published}\nСредняя оценка работ - {averageRating}\nОценено чужих работ - {reviewCounter}'''
+
+    text = f'''@{username}\nОписание \- {description}\nСсылки \- '''
+    
+    if (len(links) > 0):
+        sLinks = links.split(',')    
+        for l in sLinks:
+            fl = l.strip()
+            text = text + f'''[{fl}]({fl}), '''
+    else:
+        text = text + "Здесь пока пусто"
+
+    text = text + "\n"
+
+    text = text + f'''Опубликовано работ \- {published}\nСредняя оценка работ \- {averageRating}\nОценено чужих работ \- {reviewCounter}'''
+
+    return text
 
 def FormPictureCaption(description, averageRating = 0.0, userName = ''):
 

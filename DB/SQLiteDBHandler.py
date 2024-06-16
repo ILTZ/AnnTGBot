@@ -296,7 +296,15 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''select AVG(Rating) as AvgRating FROM Review INNER JOIN Picture ON Review.PictureID = Picture.ID WHERE Picture.UserID = {userID}'''
 
-        return self.__dataBase.SelectQuery(query)[0][0] 
+        result = self.__dataBase.SelectQuery(query)
+
+        if result == None:
+            return 0.0
+
+        if (result[0][0] == None):
+            return 0.0
+
+        return result[0][0]
 
     def FindUser(self, userName):
         

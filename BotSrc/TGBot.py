@@ -135,10 +135,10 @@ def ProcessUserData(userTelegrammID, username, descripiton, birthday, rContent, 
     if handler.AddNewUser(userTelegrammID, username, descripiton, birthday, rContent, PICTURE_LIMIT):
         userID = handler.GetDBId(userTelegrammID)
 
-        if (len(links) == 0):
+        if (len(links) > 0):
             handler.AddUserLink(userID, links)
         else:
-            handler.AddUserLink(userID, "Пусто....")
+            handler.AddUserLink(userID, "")
         
         return True
     
@@ -185,12 +185,12 @@ def ToProfileInfo(message):
     iMarkup.row(profile)
     iMarkup.row(delete)
 
-    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=iMarkup)
+    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=iMarkup, parse_mode='MarkdownV2')
 
 def ToPictureLine(message):    
     
     userID = handler.GetDBId(message.from_user.id)
-    pic = handler.GetRandomPicture(0, handler.GetUserRContentAgree(userID))
+    pic = handler.GetRandomPicture(userID, handler.GetUserRContentAgree(userID))
 
     if (len(pic) < 1):
         TG_ART_BOT.send_message(message.from_user.id, Messages.NO_PICTURE_FOR_USER)
