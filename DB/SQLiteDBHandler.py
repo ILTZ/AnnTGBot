@@ -19,7 +19,7 @@ USER_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "User"
 LINK_TABLE_CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS "Link"
 (
 	"ID"	INTEGER NOT NULL UNIQUE,
-	"Link"	TEXT NOT NULL UNIQUE,
+	"Link"	TEXT,
 	"UserID"	INTEGER NOT NULL,
 	CONSTRAINT "UserRef" FOREIGN KEY("UserID") REFERENCES User(ID),
 	PRIMARY KEY("ID")
@@ -117,7 +117,9 @@ class PictureInfo(Enum):
     AUTOR_USERNAME  = 5
 
 class PictureReview(Enum):
-    TEXT = 1
+    ID = 1
+    TEXT = 2
+    
 
 class SQLiteDBHandler(DBHandler):
 
@@ -172,13 +174,13 @@ class SQLiteDBHandler(DBHandler):
 
     def AddPictureReport(self, reviewerID, pictureID, reportText):
 
-        query = f'''INSER INTO PictureReport (Text, PictureID, UserID) VALUES ("{reportText}", {pictureID}, {reviewerID})'''
+        query = f'''INSERT INTO PictureReport (Text, PictureID, UserID) VALUES ("{reportText}", {pictureID}, {reviewerID})'''
 
         return self.__dataBase.ExecQuery(query)
 
     def AddReviewReport(self, reviewID, userID, text):
 
-        query = f'''INSER INTO ReviewReport (Text, ReviewID, UserID) VALUES ("{text}", {reviewID}, {userID})'''
+        query = f'''INSERT INTO ReviewReport (Text, ReviewID, UserID) VALUES ("{text}", {reviewID}, {userID})'''
 
         return self.__dataBase.ExecQuery(query)
 
@@ -186,7 +188,7 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''SELECT ID, Description, PictureID, AverageRating FROM Picture WHERE UserID = {userID}'''
 
-        result = self.__dataBase.ExecQuery(query)
+        result = self.__dataBase.SelectQuery(query)
 
         temp = []
 
@@ -208,34 +210,28 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''SELECT COUNT(ID) as Cnt FROM Picture WHERE UserID = {userID}'''
 
-        return self.__dataBase.ExecQuery(query)
+        return self.__dataBase.SelectQuery(query)[0][0]
 
     def GetUserLinks(self, userID):
 
-        query = f'''SELECT * FROM Link WHERE UserID = {userID}'''
+        query = f'''SELECT Link.Link FROM Link WHERE UserID = {userID}'''
 
-        return self.__dataBase.ExecQuery(query)
+        return self.__dataBase.SelectQuery(query)[0][0]
 
     def GetUserInfo(self, userID) -> list[tuple[UserInfo: any]]:
 
-        result = self.GetUserLinks(userID)
-        if (len(result) > 1):
-            links = ', '.join(result)
-        elif (len(result) == 1):
-            links = result[0]
-        else:
-            links = 'Нет ссылок'
+        links = self.GetUserLinks(userID)
 
         userData = {}
 
         query = f'''SELECT UserName, Description, ReviewCounter FROM User where ID = {userID}'''
-        result = list(self.__dataBase.ExecQuery(query)[0])
+        result = list(self.__dataBase.SelectQuery(query)[0])
 
         userData[UserInfo.USER_NAME]      = result[0]
         userData[UserInfo.DESCRIPTION]    = result[1]
         userData[UserInfo.REVIEW_COUNT]   = result[2]
         userData[UserInfo.LINKS]          = links
-        userData[UserInfo.PICTURE_COUNT]  = self.GetUserPublishedPictures(userID)[0][0]
+        userData[UserInfo.PICTURE_COUNT]  = self.GetUserPublishedPictures(userID)
         userData[UserInfo.AVERAGE_RATING] = self.GetAverageRating(userID)
         
         return userData   
@@ -244,13 +240,13 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''SELECT PictureSlots FROM User WHERE ID = {userID}'''
 
-        return self.__dataBase.ExecQuery(query)
+        return self.__dataBase.SelectQuery(query)[0][0]
     
     def GetDBId(self, tgID):
 
         query = f'''SELECT ID FROM User WHERE TGUserID = {tgID}'''
         
-        result = self.__dataBase.ExecQuery(query)
+        result = self.__dataBase.SelectQuery(query)
         if (len(result) == 1):
             return result[0][0]
 
@@ -258,17 +254,17 @@ class SQLiteDBHandler(DBHandler):
 
     def GetPictureReview(self, pictureID):
 
-        query = f'''SELECT Text FROM Review WHERE PictureID = {pictureID}'''        
+        query = f'''SELECT ID, Text FROM Review WHERE PictureID = {pictureID}'''        
 
-        result = self.__dataBase.ExecQuery(query)
+        result = self.__dataBase.SelectQuery(query)
 
-        revs = {}
+        revs = []
 
         if (len(result) < 1):
             return revs
 
         for row in result:
-            revs = {PictureReview.TEXT: row[0]}
+            revs.append({PictureReview.TEXT: row[1], PictureReview.ID: row[0]})
 
         return revs
     
@@ -276,7 +272,7 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''SELECT Rcontent from User WHERE ID = {userID}'''
 
-        return bool(self.__dataBase.ExecQuery(query)[0][0])
+        return bool(self.__dataBase.SelectQuery(query)[0][0])
 
     def GetRandomPicture(self, userID, rContent) -> list[tuple[PictureInfo: any]]:
         
@@ -289,7 +285,7 @@ class SQLiteDBHandler(DBHandler):
                         FROM Picture INNER JOIN User ON Picture.UserID = User.ID 
                         WHERE UserID != {userID} ORDER BY RANDOM() LIMIT 1'''
 
-        result = self.__dataBase.ExecQuery(query)
+        result = self.__dataBase.SelectQuery(query)
 
         temp = []
 
@@ -306,13 +302,39 @@ class SQLiteDBHandler(DBHandler):
 
         query = f'''select AVG(Rating) as AvgRating FROM Review INNER JOIN Picture ON Review.PictureID = Picture.ID WHERE Picture.UserID = {userID}'''
 
-        return self.__dataBase.ExecQuery(query)  
-  
+        return self.__dataBase.SelectQuery(query)[0][0] 
+
+
+    def UpdateLinks(self, userID, text):
+
+        query = f'''UPDATE Link SET Link = "{text}" WHERE UserID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)
+
+    def UpdateDescription(self, userID, text):
+
+        query = f'''UPDATE User SET Description = "{text}" WHERE ID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)
+
     def UpdateAverageRating(self, pictureID):
 
         query = f'''UPDATE Picture SET AverageRating = (SELECT AVG(Rating) FROM Review WHERE Review.PictureID = {pictureID}) WHERE Picture.ID = {pictureID}'''
 
-        self.__dataBase.ExecQuery(query)
+        return self.__dataBase.ExecQuery(query)
+
+    def IncreaseUserReviewCounter(self, userID):
+
+        query = f'''UPDATE User SET ReviewCounter = ReviewCounter + 1 WHERE ID = {userID}'''
+
+        return self.__dataBase.ExecQuery(query)
+
+
+    def DeleteUser(self, userID):
+        
+        query = f"DELETE FROM User WHERE ID = {userID}"
+
+        return self.__dataBase.ExecQuery(query)        
 
 db      = SQLiteDataBase("Test.db")
 handler = SQLiteDBHandler(db)

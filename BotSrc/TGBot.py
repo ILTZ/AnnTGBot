@@ -27,16 +27,14 @@ def CheckUserExists(message, userTelegramID) -> bool:
 
     return False
 
-
 @TG_ART_BOT.message_handler(commands=['start', 'help'])
 def StartMessage(message):    
 
-    if (CheckUserExists(message.from_user.id)):
+    TG_ART_BOT.send_message(message.from_user.id, Messages.BOT_DESCRIPTION)    
+
+    if (CheckUserExists(message.from_user.id) == False):
         TG_ART_BOT.send_message(message.from_user.id, Messages.BOT_DESCRIPTION)    
-    else:                
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.WELCOME_MESSAGE)    
-        msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE)           
-        TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo)    
+        GoToRegistration(message)
 
 ########################################################################### User register process {
 
@@ -61,7 +59,13 @@ def GetBirthday(message, *argv):
     markup.add(y,n)
 
     msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
-    TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], message.text)    
+    TG_ART_BOT.register_next_step_handler(msg, GetUserLinks, argv[0], argv[1], message.text)    
+###########################################################################################
+
+def GetUserLinks(message, *argv):
+
+    msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_LINKS)
+    TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], argv[2])    
 ###########################################################################################
 
 def GetRcontent(message, *argv):
@@ -82,17 +86,38 @@ def GetRcontent(message, *argv):
         markup.add(y,n)
 
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
-        TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], argv[2], result)    
+        TG_ART_BOT.register_next_step_handler(msg, GetRcontent, argv[0], argv[1], argv[2], argv[3])    
         return
-
-    ProcessUserData(message.from_user.id, argv[0], argv[1], argv[2])
-
-    ToMainMenu(message)
+        
+    if ProcessUserData(message.from_user.id, argv[0], argv[1], argv[2], result, argv[3]):
+        ToMainMenu(message)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_RESTART)
+        GoToRegistration(message)
 ###########################################################################################
 
-def ProcessUserData(userTelegrammID, username, descripiton, birthday, rContent):
-    handler.AddNewUser(userTelegrammID, username, descripiton, birthday, rContent, PICTURE_LIMIT)        
+def ProcessUserData(userTelegrammID, username, descripiton, birthday, rContent, links):
+    if handler.AddNewUser(userTelegrammID, username, descripiton, birthday, rContent, PICTURE_LIMIT):
+        userID = handler.GetDBId(userTelegrammID)
+
+        if (len(links) == 0):
+            handler.AddUserLink(userID, links)
+        else:
+            handler.AddUserLink(userID, "Пусто....")
+        
+        return True
+    
+    return False
 ########################################################################### User register process }
+
+
+
+
+
+
+
+
 
 ########################################################################### }
 
@@ -114,20 +139,28 @@ def ToMainMenu(message):
 
 def ToProfileInfo(message):
     
-    markup      = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-    redactInfo  = types.KeyboardButton("Редактировать")
-    back        = types.KeyboardButton("Главное меню")
-
-    markup.row(redactInfo)
+    markup      = types.ReplyKeyboardMarkup(resize_keyboard=True)    
+    back        = types.KeyboardButton("Главное меню")    
     markup.row(back)
     
+    TG_ART_BOT.send_message(message.from_user.id, Messages.PROFILE_INFO_MESSAGE, reply_markup=markup)    
+
     userID   = handler.GetDBId(message.from_user.id)
     userData = handler.GetUserInfo(userID)
 
-    answer = Messages.FormProfileInfo(userData[UserInfo.USER_NAME], userData[UserInfo.LINKS], userData[UserInfo.REVIEW_COUNT], userData[UserInfo.PICTURE_COUNT], userData[UserInfo.DESCRIPTION], userData[UserInfo.AVERAGE_RATING])
+    answer = Messages.FormProfileInfo(userData[UserInfo.USER_NAME], userData[UserInfo.LINKS], userData[UserInfo.REVIEW_COUNT], userData[UserInfo.PICTURE_COUNT], userData[UserInfo.DESCRIPTION], round(userData[UserInfo.AVERAGE_RATING], 1))
 
-    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=markup)    
+    iMarkup = types.InlineKeyboardMarkup()
+    links   = types.InlineKeyboardButton("Редактировать ссылки",   callback_data=f"RedLinks:{userID}")
+    profile = types.InlineKeyboardButton("Редактировать описание", callback_data=f"RedDesc:{userID}")
+    delete  = types.InlineKeyboardButton("УДАЛИТЬ ПРОФИЛЬ",        callback_data=f"DelProfile:{userID}")
+
+    iMarkup.row(links)
+    iMarkup.row(profile)
+    iMarkup.row(delete)
+
+    TG_ART_BOT.send_message(message.from_user.id, answer, reply_markup=iMarkup)
+
 
 def ToPictureLine(message):    
     
@@ -142,7 +175,7 @@ def ToPictureLine(message):
     
     info = pic[0]
 
-    text = Messages.FormPictureCaption(info[PictureInfo.DESCRIPTION], info[PictureInfo.AVERAGE_RATING], info[PictureInfo.AUTOR_USERNAME])
+    text = Messages.FormPictureCaption(description=info[PictureInfo.DESCRIPTION], userName=info[PictureInfo.AUTOR_USERNAME])
 
     markup  = types.InlineKeyboardMarkup()
     ranking = types.InlineKeyboardButton("Оценить",      callback_data=f"RatingPic:{info[PictureInfo.ROW_ID]}")
@@ -190,15 +223,19 @@ def ToReview(message):
     TG_ART_BOT.send_message(message.from_user.id, "Ваши отзывы", reply_markup=markup)    
 
     for row in pictures:
-        
+                
+        TG_ART_BOT.send_photo(message.from_user.id, photo=row[PictureInfo.TG_FILE_ID])                    
+
         reviews = handler.GetPictureReview(row[PictureInfo.ROW_ID])
 
         if (len(reviews) > 0):
-            caption = reviews[PictureReview.TEXT]
-        else:
-            caption = Messages.NO_REVIEW_FOR_PICTURE
-            
-        TG_ART_BOT.send_photo(message.from_user.id, photo=row[PictureInfo.TG_FILE_ID], caption=caption)                    
+            for rev in reviews:
+
+                markup = types.InlineKeyboardMarkup()
+                report = types.InlineKeyboardButton("Пожаловаться", callback_data=f"RepRev:{rev[PictureReview.ID]}")
+                markup.add(report)
+
+                TG_ART_BOT.send_message(message.from_user.id, rev[PictureReview.TEXT], reply_markup=markup)            
     
 ########################################################################### {
 @TG_ART_BOT.message_handler(content_types=['text'])
@@ -239,6 +276,9 @@ def ButtonsHandler(message):
 
         else:
             ToMainMenu(message)
+
+    else:
+        GoToRegistration(message)
 ########################################################################### }
 
 ########################################################################### {
@@ -278,9 +318,9 @@ def UploadPicture(message, **data):
     if (handler.AddNewPicture(data['ID'], data['Desc'], data['PhotoID'], rContent)):
         TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_SUCCESS)                
     else:
-        TG_ART_BOT.send_message(message.from_user.id, Messages.PICTURE_UPLOAD_FAILED)
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
 
-    ToMainMenu(msg)
+    ToMainMenu(message)
 
 @TG_ART_BOT.message_handler(content_types=['photo', 'text'])
 def PictureHandler(message):
@@ -325,7 +365,7 @@ def cbHandler(call):
         if handler.RemovePicture(data):
             TG_ART_BOT.send_message(call.from_user.id, Messages.PICTURE_DELETE_SUCCESS)
         else:
-            TG_ART_BOT.send_message(call.from_user.id, Messages.PICTURE_DELETE_FAILED)
+            TG_ART_BOT.send_message(call.from_user.id, Messages.PROCESS_FAILED)
 
     elif(comand == 'RatingPic'):
         
@@ -344,13 +384,103 @@ def cbHandler(call):
         TG_ART_BOT.register_next_step_handler(msg, reviewData, picID, rating)
         
     elif(comand == 'RepPic'):
-
-        pass
+        
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.REPORT_MESSAGE)
+        TG_ART_BOT.register_next_step_handler(msg, reportPicture, data)                
 
     elif(comand == 'RepRev'):
 
-        pass
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.REPORT_MESSAGE)
+        TG_ART_BOT.register_next_step_handler(msg, reportReview, data)     
+
+    elif(comand == 'RedLinks'):
         
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.REDACT_LINKS_MSG)
+        TG_ART_BOT.register_next_step_handler(msg, updateLinks, data)             
+
+    elif(comand == 'RedDesc'):
+
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.REDACT_DESCRIPTION_MSG)
+        TG_ART_BOT.register_next_step_handler(msg, updateDescription, data)             
+
+    elif(comand == 'DelProfile'):
+
+        mu = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        y = types.KeyboardButton("Да")
+        n = types.KeyboardButton("Нет")
+        mu.add(y, n)
+
+        msg = TG_ART_BOT.send_message(call.from_user.id, Messages.DELETE_PROFILE_MSG, reply_markup=mu)
+        TG_ART_BOT.register_next_step_handler(msg, deleteProfile, data)                     
+
+def updateLinks(message, *argv):
+    
+    if (message.text == 'Главное меню'):
+        ToMainMenu(message)
+
+    userID = handler.GetDBId(message.from_user.id)
+
+    if handler.UpdateLinks(userID, message.text):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.UPDATE_SUCCES_MSG)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
+
+    ToProfileInfo(message)
+####################################################################################
+
+
+def updateDescription(message, *argv):
+
+    if (message.text == 'Главное меню'):
+        ToMainMenu(message)
+
+    userID = handler.GetDBId(message.from_user.id)
+
+    if handler.UpdateDescription(userID, message.text):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.UPDATE_SUCCES_MSG)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)    
+
+    ToProfileInfo(message)
+####################################################################################
+
+
+def deleteProfile(message, *argv):    
+
+    if (message.text == 'Да'):
+        if handler.DeleteUser(argv[0]):
+            TG_ART_BOT.send_message(message.from_user.id, Messages.PROFILE_WAS_DELETED)
+        else:
+            TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
+
+    elif(message.text == 'Нет'):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROFILE_WAS_SAVED)
+        ToProfileInfo(message)
+####################################################################################        
+
+def reportReview(message, *argv):
+
+    if (message.text == 'Главное меню'):
+        ToMainMenu(message)    
+
+    userID = handler.GetDBId(message.from_user.id)
+    if handler.AddReviewReport(argv[0], userID, message.text):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.REPORT_ADDED_SUCCESS)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)    
+
+def reportPicture(message, *argv):
+
+    if (message.text == 'Главное меню'):
+        ToMainMenu(message)
+    elif(message.text == 'Следующий рисунок'):
+        ToPictureLine(message)
+
+    userID = handler.GetDBId(message.from_user.id)
+    if handler.AddPictureReport(userID, argv[0], message.text):
+        TG_ART_BOT.send_message(message.from_user.id, Messages.REPORT_ADDED_SUCCESS)
+    else:
+        TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)        
 
 def reviewData(message, *argv):
 
@@ -364,6 +494,7 @@ def reviewData(message, *argv):
     if handler.AddPictureReview(userID, argv[0], message.text, argv[1]):
         text = Messages.REVIEW_SUCCESS_ADDED
         handler.UpdateAverageRating(argv[0])
+        handler.IncreaseUserReviewCounter(userID)
     else:
         text = Messages.REVIEW_FAILED_ADDED
                
