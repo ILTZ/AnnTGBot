@@ -118,10 +118,7 @@ def FormProfileInfo(username, links, reviewCounter, published, description, aver
     text = f'''@{username}\nОписание \- {description}\nСсылки \- '''
     
     if (len(links) > 0):
-        sLinks = links.split(',')    
-        for l in sLinks:
-            fl = l.strip()
-            text = text + f'''[{fl}]({fl}), '''
+        text = text + links
     else:
         text = text + "Здесь пока пусто"
 
