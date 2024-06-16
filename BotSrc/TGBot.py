@@ -61,7 +61,8 @@ import re
 def GetBirthday(message):
 
     regex = re.compile(r'(?<!\d)(?:0?[1-9]|[12][0-9]|3[01]).(?:0?[1-9]|1[0-2]).(?:19[0-9][0-9]|20[01][0-9])(?!\d)')
-    match = regex.match(message.text)
+    birthday = message.text
+    match = regex.match(birthday)
 
     if (match is None):
         TG_ART_BOT.send_message(message.from_user.id, Messages.PROCESS_FAILED)
@@ -87,7 +88,7 @@ def GetBirthday(message):
         markup.add(y, n)
 
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_CONTENT_MARK, reply_markup=markup)    
-        TG_ART_BOT.register_next_step_handler(msg, GetContentMark, Birthday=message.text)    
+        TG_ART_BOT.register_next_step_handler(msg, GetContentMark, Birthday=userBithday.strftime("%d.%m.%Y"))    
     else:
         msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE) 
         TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo, Birthday=message.text, RContent=0)       
@@ -107,7 +108,7 @@ def GetContentMark(message, **kwargs):
         return
 
     msg = TG_ART_BOT.send_message(message.from_user.id, Messages.REG_GET_PROFILE_INFO_MESSAGE) 
-    TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo, Birthday=message.text, RContent=result)       
+    TG_ART_BOT.register_next_step_handler(msg, GetProfileInfo, Birthday=kwargs["Birthday"], RContent=result)       
 ###########################################################################################
 
 def GetProfileInfo(message, **kwargs):
