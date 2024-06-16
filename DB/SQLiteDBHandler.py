@@ -278,7 +278,7 @@ class SQLiteDBHandler(DBHandler):
         if (rContent == 0):
             query = f'''SELECT UserName, Picture.ID, Picture.Description, Picture.PictureID, Picture.AverageRating 
                         FROM Picture INNER JOIN User ON Picture.UserID = User.ID 
-                        WHERE UserID != {userID} AND Rcontent = {rContent} ORDER BY RANDOM() LIMIT 1'''
+                        WHERE UserID != {userID} AND Picture.Rcontent = {int(rContent)} ORDER BY RANDOM() LIMIT 1'''
         else:
             query = f'''SELECT UserName, Picture.ID, Picture.Description, Picture.PictureID, Picture.AverageRating 
                         FROM Picture INNER JOIN User ON Picture.UserID = User.ID 

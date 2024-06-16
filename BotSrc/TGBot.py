@@ -392,19 +392,20 @@ def PictureHandler(message):
 
             markup.add(y, n)
 
-            file_id     = message.photo[-1].file_id                        
-            text = message.caption
+            file_id = message.photo[-1].file_id                        
+            text    = message.caption
 
             msg = TG_ART_BOT.send_message(message.from_user.id, Messages.IS_R_CONTENT, reply_markup=markup)            
             TG_ART_BOT.register_next_step_handler(msg, UploadPicture, PhotoID=file_id, Desc=text, ID=userID)                       
         else:
 
             file_id = message.photo[-1].file_id                                                
+            text    = message.caption
 
             if handler.AddNewPicture(userID, text, file_id, 0):
                 msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_SUCCESS)        
             else:
-                msg = TG_ART_BOT.send_message(message, Messages.PICTURE_UPLOAD_FAILED)
+                msg = TG_ART_BOT.send_message(message, Messages.PROCESS_FAILED)
 
             ToMainMenu(msg)
     else:
